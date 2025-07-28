@@ -5,12 +5,12 @@
     Runs comprehensive Exchange Online security health checks using Maester framework (Simplified version)
     
 .DESCRIPTION
-    This script executes all Exchange Online security tests from the Maester framework
-    without requiring Microsoft Graph connectivity. It connects to Exchange Online only
+    This script executes all Exchange Online security tests from the Maester framework.
+    It connects to both Exchange Online and Security & Compliance Center to run all tests
     and generates CSV reports only (no HTML generation).
     
 .PARAMETER SkipConnection
-    Skip the Exchange Online connection (assumes already connected)
+    Skip the Exchange Online and Security & Compliance connections (assumes already connected)
     
 .PARAMETER IncludePassedDetails
     Include full details for passed tests in the CSV export (default: only failed/skipped get full details)
@@ -27,12 +27,13 @@
     
 .NOTES
     Author: Maester Exchange Health Check Script (Simplified)
-    Version: 1.0
+    Version: 1.1
     Prerequisites:
     - Exchange Online Management PowerShell module
     - Maester PowerShell module
     - Pester PowerShell module (v5.0+)
     - Exchange Online administrative permissions
+    - Security & Compliance Center administrative permissions
 #>
 
 [CmdletBinding()]
@@ -70,14 +71,14 @@ try {
     exit 1
 }
 
-# Connect to Exchange Online if not skipped
+# Connect to Exchange Online and Security & Compliance if not skipped
 if (!$SkipConnection) {
-    Write-Host "`nConnecting to Exchange Online..." -ForegroundColor Yellow
+    Write-Host "`nConnecting to Exchange Online and Security & Compliance Center..." -ForegroundColor Yellow
     try {
-        Connect-ExchangeOnline -ShowBanner:$false
-        Write-Host "Successfully connected to Exchange Online" -ForegroundColor Green
+        Connect-Maester -Service ExchangeOnline,SecurityCompliance
+        Write-Host "Successfully connected to Exchange Online and Security & Compliance Center" -ForegroundColor Green
     } catch {
-        Write-Error "Failed to connect to Exchange Online: $_"
+        Write-Error "Failed to connect to Exchange Online and Security & Compliance Center: $_"
         exit 1
     }
 }
@@ -505,8 +506,8 @@ Write-Host "`nTest execution completed in $([math]::Round($testDuration.TotalMin
 
 # Disconnect if we connected
 if (!$SkipConnection) {
-    Write-Host "`nDisconnecting from Exchange Online..." -ForegroundColor Yellow
-    Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue
+    Write-Host "`nDisconnecting from Exchange Online and Security & Compliance Center..." -ForegroundColor Yellow
+    Disconnect-Maester -Service ExchangeOnline,SecurityCompliance -ErrorAction SilentlyContinue
 }
 
 # Return results object
