@@ -109,8 +109,8 @@ Write-Host "`nSearching for Exchange Online tests..." -ForegroundColor Yellow
 # Find all test files with Exchange-related tags
 $exoTestFiles = @()
 $testPatterns = @(
-    '-Tag.*["'']EXO["'']',           # ORCA tests use "EXO"
-    '-Tag.*["'']MS\.EXO["'']'        # CISA tests use "MS.EXO"
+    '-Tag.*["`'']EXO["`'']',           # ORCA tests use "EXO"
+    '-Tag.*["`'']MS\.EXO["`'']'        # CISA tests use "MS.EXO"
 )
 
 # Search in relevant directories
@@ -175,12 +175,12 @@ function Get-TestDocumentation {
         $cmdContent = Get-Content $publicPath -Raw
         
         # Extract description from .SYNOPSIS
-        if ($cmdContent -match '\.SYNOPSIS\s*\n\s*(.+?)(?=\n\s*\.|\n#>)') {
+        if ($cmdContent -match '\.SYNOPSIS\s*\n\s*(.+?)(?=\n\s*\.|#>)') {
             $documentation.Description = $matches[1].Trim()
         }
         
         # Extract description from .DESCRIPTION
-        if ($cmdContent -match '\.DESCRIPTION\s*\n([\s\S]+?)(?=\n\s*\.|\n#>)') {
+        if ($cmdContent -match '\.DESCRIPTION\s*\n([\s\S]+?)(?=\n\s*\.|#>)') {
             $documentation.Rationale = $matches[1].Trim() -replace '\s+', ' '
         }
     }
@@ -410,140 +410,138 @@ $stats = @{
     Skipped = ($detailedResults | Where-Object {$_.Result -eq 'Skipped'}).Count
 }
 
-$htmlContent = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Exchange Online Security Health Check Report</title>
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; background-color: #f5f5f5; line-height: 1.6; }
-        .header { background: linear-gradient(135deg, #0078d4 0%, #005a9e 100%); color: white; padding: 30px; margin-bottom: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header h1 { margin: 0 0 10px 0; font-size: 32px; }
-        .header p { margin: 5px 0; opacity: 0.9; }
-        .summary { background-color: white; padding: 30px; margin-bottom: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .test-card { background-color: white; padding: 25px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #d83b01; transition: transform 0.2s; }
-        .test-card:hover { transform: translateX(5px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
-        .test-header { font-size: 20px; font-weight: 600; margin-bottom: 15px; color: #323130; }
-        .test-id { color: #0078d4; font-family: 'Consolas', monospace; background-color: #f3f2f1; padding: 2px 8px; border-radius: 4px; }
-        .section { margin: 15px 0; }
-        .section-title { font-weight: 600; color: #605e5c; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .remediation { background-color: #e8f4fd; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #b3d9f2; }
-        .error { color: #d83b01; background-color: #fde7e9; padding: 15px; border-radius: 6px; margin: 15px 0; border: 1px solid #f3b3b8; }
-        a { color: #0078d4; text-decoration: none; font-weight: 500; }
-        a:hover { text-decoration: underline; }
-        .stats { display: flex; justify-content: space-around; margin: 30px 0; flex-wrap: wrap; }
-        .stat-box { text-align: center; padding: 25px; background-color: #f8f8f8; border-radius: 8px; flex: 1; margin: 10px; min-width: 150px; transition: transform 0.2s; }
-        .stat-box:hover { transform: translateY(-5px); }
-        .stat-number { font-size: 48px; font-weight: 700; color: #323130; line-height: 1; }
-        .stat-label { color: #605e5c; margin-top: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .passed { background-color: #dff6dd; }
-        .failed { background-color: #fde7e9; }
-        .skipped { background-color: #fff4ce; }
-        .footer { text-align: center; margin-top: 50px; padding: 20px; color: #605e5c; font-size: 14px; }
-        .test-details { background-color: #f8f8f8; padding: 10px; border-radius: 4px; margin-top: 10px; }
-        pre { background-color: #f3f2f1; padding: 10px; border-radius: 4px; overflow-x: auto; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Exchange Online Security Health Check</h1>
-        <p><strong>Report Generated:</strong> $(Get-Date -Format "dddd, MMMM dd, yyyy 'at' h:mm tt")</p>
-        <p><strong>Tenant:</strong> $($connectionInfo.TenantId)</p>
-        <p><strong>Environment:</strong> $($connectionInfo.ConnectionUri)</p>
-        <p><strong>Test Duration:</strong> $([math]::Round($testDuration.TotalMinutes, 1)) minutes</p>
-    </div>
-    
-    <div class="summary">
-        <h2>Executive Summary</h2>
-        <p>This report provides a comprehensive security assessment of your Exchange Online configuration against industry best practices and compliance frameworks.</p>
-        
-        <div class="stats">
-            <div class="stat-box">
-                <div class="stat-number">$($stats.Total)</div>
-                <div class="stat-label">Total Tests</div>
-            </div>
-            <div class="stat-box passed">
-                <div class="stat-number">$($stats.Passed)</div>
-                <div class="stat-label">Passed</div>
-            </div>
-            <div class="stat-box failed">
-                <div class="stat-number">$($stats.Failed)</div>
-                <div class="stat-label">Failed</div>
-            </div>
-            <div class="stat-box skipped">
-                <div class="stat-number">$($stats.Skipped)</div>
-                <div class="stat-label">Skipped</div>
-            </div>
-        </div>
-        
-        <p><strong>Compliance Score:</strong> $([math]::Round(($stats.Passed / ($stats.Total - $stats.Skipped)) * 100, 1))% of executed tests passed</p>
-    </div>
-    
-    <h2>Failed Tests - Remediation Required</h2>
-    <p>The following tests failed and require immediate attention to improve your security posture:</p>
-"@
+# Build HTML content using string concatenation instead of here-strings
+$htmlContent = '<!DOCTYPE html>' + "`n"
+$htmlContent += '<html>' + "`n"
+$htmlContent += '<head>' + "`n"
+$htmlContent += '    <title>Exchange Online Security Health Check Report</title>' + "`n"
+$htmlContent += '    <style>' + "`n"
+$htmlContent += '        body { font-family: "Segoe UI", Arial, sans-serif; margin: 20px; background-color: #f5f5f5; line-height: 1.6; }' + "`n"
+$htmlContent += '        .header { background: linear-gradient(135deg, #0078d4 0%, #005a9e 100%); color: white; padding: 30px; margin-bottom: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }' + "`n"
+$htmlContent += '        .header h1 { margin: 0 0 10px 0; font-size: 32px; }' + "`n"
+$htmlContent += '        .header p { margin: 5px 0; opacity: 0.9; }' + "`n"
+$htmlContent += '        .summary { background-color: white; padding: 30px; margin-bottom: 30px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }' + "`n"
+$htmlContent += '        .test-card { background-color: white; padding: 25px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 5px solid #d83b01; transition: transform 0.2s; }' + "`n"
+$htmlContent += '        .test-card:hover { transform: translateX(5px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }' + "`n"
+$htmlContent += '        .test-header { font-size: 20px; font-weight: 600; margin-bottom: 15px; color: #323130; }' + "`n"
+$htmlContent += '        .test-id { color: #0078d4; font-family: "Consolas", monospace; background-color: #f3f2f1; padding: 2px 8px; border-radius: 4px; }' + "`n"
+$htmlContent += '        .section { margin: 15px 0; }' + "`n"
+$htmlContent += '        .section-title { font-weight: 600; color: #605e5c; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }' + "`n"
+$htmlContent += '        .remediation { background-color: #e8f4fd; padding: 15px; border-radius: 6px; margin-top: 15px; border: 1px solid #b3d9f2; }' + "`n"
+$htmlContent += '        .error { color: #d83b01; background-color: #fde7e9; padding: 15px; border-radius: 6px; margin: 15px 0; border: 1px solid #f3b3b8; }' + "`n"
+$htmlContent += '        a { color: #0078d4; text-decoration: none; font-weight: 500; }' + "`n"
+$htmlContent += '        a:hover { text-decoration: underline; }' + "`n"
+$htmlContent += '        .stats { display: flex; justify-content: space-around; margin: 30px 0; flex-wrap: wrap; }' + "`n"
+$htmlContent += '        .stat-box { text-align: center; padding: 25px; background-color: #f8f8f8; border-radius: 8px; flex: 1; margin: 10px; min-width: 150px; transition: transform 0.2s; }' + "`n"
+$htmlContent += '        .stat-box:hover { transform: translateY(-5px); }' + "`n"
+$htmlContent += '        .stat-number { font-size: 48px; font-weight: 700; color: #323130; line-height: 1; }' + "`n"
+$htmlContent += '        .stat-label { color: #605e5c; margin-top: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }' + "`n"
+$htmlContent += '        .passed { background-color: #dff6dd; }' + "`n"
+$htmlContent += '        .failed { background-color: #fde7e9; }' + "`n"
+$htmlContent += '        .skipped { background-color: #fff4ce; }' + "`n"
+$htmlContent += '        .footer { text-align: center; margin-top: 50px; padding: 20px; color: #605e5c; font-size: 14px; }' + "`n"
+$htmlContent += '        .test-details { background-color: #f8f8f8; padding: 10px; border-radius: 4px; margin-top: 10px; }' + "`n"
+$htmlContent += '        pre { background-color: #f3f2f1; padding: 10px; border-radius: 4px; overflow-x: auto; }' + "`n"
+$htmlContent += '    </style>' + "`n"
+$htmlContent += '</head>' + "`n"
+$htmlContent += '<body>' + "`n"
+$htmlContent += '    <div class="header">' + "`n"
+$htmlContent += '        <h1>Exchange Online Security Health Check</h1>' + "`n"
+$htmlContent += "        <p><strong>Report Generated:</strong> $(Get-Date -Format 'dddd, MMMM dd, yyyy \"at\" h:mm tt')</p>" + "`n"
+$htmlContent += "        <p><strong>Tenant:</strong> $($connectionInfo.TenantId)</p>" + "`n"
+$htmlContent += "        <p><strong>Environment:</strong> $($connectionInfo.ConnectionUri)</p>" + "`n"
+$htmlContent += "        <p><strong>Test Duration:</strong> $([math]::Round($testDuration.TotalMinutes, 1)) minutes</p>" + "`n"
+$htmlContent += '    </div>' + "`n"
+$htmlContent += '    ' + "`n"
+$htmlContent += '    <div class="summary">' + "`n"
+$htmlContent += '        <h2>Executive Summary</h2>' + "`n"
+$htmlContent += '        <p>This report provides a comprehensive security assessment of your Exchange Online configuration against industry best practices and compliance frameworks.</p>' + "`n"
+$htmlContent += '        ' + "`n"
+$htmlContent += '        <div class="stats">' + "`n"
+$htmlContent += '            <div class="stat-box">' + "`n"
+$htmlContent += "                <div class='stat-number'>$($stats.Total)</div>" + "`n"
+$htmlContent += '                <div class="stat-label">Total Tests</div>' + "`n"
+$htmlContent += '            </div>' + "`n"
+$htmlContent += '            <div class="stat-box passed">' + "`n"
+$htmlContent += "                <div class='stat-number'>$($stats.Passed)</div>" + "`n"
+$htmlContent += '                <div class="stat-label">Passed</div>' + "`n"
+$htmlContent += '            </div>' + "`n"
+$htmlContent += '            <div class="stat-box failed">' + "`n"
+$htmlContent += "                <div class='stat-number'>$($stats.Failed)</div>" + "`n"
+$htmlContent += '                <div class="stat-label">Failed</div>' + "`n"
+$htmlContent += '            </div>' + "`n"
+$htmlContent += '            <div class="stat-box skipped">' + "`n"
+$htmlContent += "                <div class='stat-number'>$($stats.Skipped)</div>" + "`n"
+$htmlContent += '                <div class="stat-label">Skipped</div>' + "`n"
+$htmlContent += '            </div>' + "`n"
+$htmlContent += '        </div>' + "`n"
+$htmlContent += '        ' + "`n"
+$htmlContent += "        <p><strong>Compliance Score:</strong> $([math]::Round(($stats.Passed / ($stats.Total - $stats.Skipped)) * 100, 1))% of executed tests passed</p>" + "`n"
+$htmlContent += '    </div>' + "`n"
+$htmlContent += '    ' + "`n"
+$htmlContent += '    <h2>Failed Tests - Remediation Required</h2>' + "`n"
+$htmlContent += '    <p>The following tests failed and require immediate attention to improve your security posture:</p>' + "`n"
 
 foreach ($test in $failedTests) {
-    $htmlContent += @"
-    <div class="test-card">
-        <div class="test-header">
-            <span class="test-id">$($test.TestId)</span> - $($test.TestName)
-        </div>
-        
-        <div class="section">
-            <div class="section-title">Description</div>
-            <p>$($test.Description)</p>
-        </div>
-        
-        $(if ($test.ErrorMessage) {
-        "<div class='error'>
-            <strong>Error Details:</strong> $($test.ErrorMessage)
-        </div>"
-        })
-        
-        $(if ($test.Impact) {
-        "<div class='section'>
-            <div class='section-title'>Security Impact</div>
-            <p>$($test.Impact)</p>
-        </div>"
-        })
-        
-        $(if ($test.Rationale) {
-        "<div class='section'>
-            <div class='section-title'>Why This Matters</div>
-            <p>$($test.Rationale)</p>
-        </div>"
-        })
-        
-        <div class="remediation">
-            <div class="section-title">Remediation Steps</div>
-            $(if ($test.HowToFix) {
-                "<p>$($test.HowToFix)</p>"
-            } else {
-                "<p>To fix this issue, review and update the configuration in the Microsoft admin portal.</p>"
-            })
-            
-            <p><strong>Admin Portal:</strong> <a href='$($test.RemediationUrl)' target='_blank'>$($test.RemediationUrl)</a></p>
-        </div>
-        
-        $(if ($test.References) {
-        "<div class='section'>
-            <div class='section-title'>Additional References</div>
-            <p>$($test.References)</p>
-        </div>"
-        })
-    </div>
-"@
+    $htmlContent += '    <div class="test-card">' + "`n"
+    $htmlContent += '        <div class="test-header">' + "`n"
+    $htmlContent += "            <span class='test-id'>$($test.TestId)</span> - $($test.TestName)" + "`n"
+    $htmlContent += '        </div>' + "`n"
+    $htmlContent += '        ' + "`n"
+    $htmlContent += '        <div class="section">' + "`n"
+    $htmlContent += '            <div class="section-title">Description</div>' + "`n"
+    $htmlContent += "            <p>$($test.Description)</p>" + "`n"
+    $htmlContent += '        </div>' + "`n"
+    $htmlContent += '        ' + "`n"
+    
+    if ($test.ErrorMessage) {
+        $htmlContent += "        <div class='error'>" + "`n"
+        $htmlContent += "            <strong>Error Details:</strong> $($test.ErrorMessage)" + "`n"
+        $htmlContent += "        </div>" + "`n"
+    }
+    
+    if ($test.Impact) {
+        $htmlContent += "        <div class='section'>" + "`n"
+        $htmlContent += "            <div class='section-title'>Security Impact</div>" + "`n"
+        $htmlContent += "            <p>$($test.Impact)</p>" + "`n"
+        $htmlContent += "        </div>" + "`n"
+    }
+    
+    if ($test.Rationale) {
+        $htmlContent += "        <div class='section'>" + "`n"
+        $htmlContent += "            <div class='section-title'>Why This Matters</div>" + "`n"
+        $htmlContent += "            <p>$($test.Rationale)</p>" + "`n"
+        $htmlContent += "        </div>" + "`n"
+    }
+    
+    $htmlContent += '        <div class="remediation">' + "`n"
+    $htmlContent += '            <div class="section-title">Remediation Steps</div>' + "`n"
+    if ($test.HowToFix) {
+        $htmlContent += "            <p>$($test.HowToFix)</p>" + "`n"
+    } else {
+        $htmlContent += "            <p>To fix this issue, review and update the configuration in the Microsoft admin portal.</p>" + "`n"
+    }
+    
+    $htmlContent += "            <p><strong>Admin Portal:</strong> <a href='$($test.RemediationUrl)' target='_blank'>$($test.RemediationUrl)</a></p>" + "`n"
+    $htmlContent += '        </div>' + "`n"
+    $htmlContent += '        ' + "`n"
+    
+    if ($test.References) {
+        $htmlContent += "        <div class='section'>" + "`n"
+        $htmlContent += "            <div class='section-title'>Additional References</div>" + "`n"
+        $htmlContent += "            <p>$($test.References)</p>" + "`n"
+        $htmlContent += "        </div>" + "`n"
+    }
+    
+    $htmlContent += '    </div>' + "`n"
 }
 
-$htmlContent += @"
-    <div class="footer">
-        <p>This report was generated using the Maester security assessment framework.</p>
-        <p>For more information, visit <a href="https://maester.dev" target="_blank">maester.dev</a></p>
-    </div>
-</body>
-</html>
-"@
+$htmlContent += '    <div class="footer">' + "`n"
+$htmlContent += '        <p>This report was generated using the Maester security assessment framework.</p>' + "`n"
+$htmlContent += '        <p>For more information, visit <a href="https://maester.dev" target="_blank">maester.dev</a></p>' + "`n"
+$htmlContent += '    </div>' + "`n"
+$htmlContent += '</body>' + "`n"
+$htmlContent += '</html>'
 
 $htmlContent | Out-File -FilePath $htmlPath -Encoding UTF8
 Write-Host "✓ HTML report exported to: $(Split-Path $htmlPath -Leaf)" -ForegroundColor Green
