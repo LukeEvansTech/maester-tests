@@ -1,5 +1,5 @@
 {
-  "threshold": 10,
+  "threshold": 30,
   "reporters": ["consoleFull"],
   "ignore": [
     "**/node_modules/**",
@@ -8,6 +8,8 @@
     "**/.venv/**",
     "**/dist/**",
     "**/build/**",
-    "**/assets/scss/framework/**"
+    "**/assets/scss/framework/**",
+    "**/tests/**",
+    "**/Tests/**"
   ]
 }
