@@ -16,3 +16,10 @@ jobs:
       statuses: write
       pull-requests: write
     uses: LukeEvansTech/shared-workflows/.github/workflows/super-linter.yml@3771e1f9da1b3f6132eec9d63aacc0acb74660bc # v1
+    with:
+      # Graduated from soft-launch. A full-codebase pass (VALIDATE_ALL_CODEBASE=true,
+      # run locally against super-linter v8.6.0 with this repo's exact CI env)
+      # reported 183 PowerShell findings; all are now either fixed at source or
+      # excluded with justification in .github/linters/.powershell-psscriptanalyzer.psd1,
+      # and the repo is clean. Blocking from here keeps it that way.
+      soft-launch: false
