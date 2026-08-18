@@ -1,30 +1,30 @@
-#Requires -Modules ExchangeOnlineManagement, Maester, Pester
+﻿#Requires -Modules ExchangeOnlineManagement, Maester, Pester
 
 <#
 .SYNOPSIS
     Runs comprehensive Exchange Online security health checks using Maester framework
-    
+
 .DESCRIPTION
     This script executes all Exchange Online security tests from the Maester framework
     without requiring Microsoft Graph connectivity. It connects to Exchange Online only
     and generates detailed reports including CSV exports and HTML remediation guides.
-    
+
 .PARAMETER SkipConnection
     Skip the Exchange Online connection (assumes already connected)
-    
+
 .PARAMETER IncludePassedDetails
     Include full details for passed tests in the CSV export (default: only failed/skipped get full details)
-    
+
 .EXAMPLE
     .\Run-MaesterExchangeHealthCheck.ps1
-    
+
     Runs all Exchange Online tests and generates reports in the Reports subdirectory
-    
+
 .EXAMPLE
     .\Run-MaesterExchangeHealthCheck.ps1 -SkipConnection
-    
+
     Runs tests assuming Exchange Online connection is already established
-    
+
 .NOTES
     Author: Maester Exchange Health Check Script
     Version: 1.0
@@ -114,9 +114,9 @@ $testPatterns = @(
 )
 
 # Search in relevant directories
-$searchDirs = Get-ChildItem -Path $testsPath -Directory -Recurse -ErrorAction SilentlyContinue | 
-    Where-Object { 
-        $_.Name -in @('exchange', 'orca', 'cis', 'cisa') -or 
+$searchDirs = Get-ChildItem -Path $testsPath -Directory -Recurse -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.Name -in @('exchange', 'orca', 'cis', 'cisa') -or
         $_.FullName -match 'exchange|exo'
     }
 
@@ -141,7 +141,7 @@ $exoTestFiles = $exoTestFiles | Sort-Object DirectoryName, Name
 Write-Host "✓ Found $($exoTestFiles.Count) Exchange Online test files" -ForegroundColor Green
 
 # Group by test type for reporting
-$fileGroups = $exoTestFiles | Group-Object { 
+$fileGroups = $exoTestFiles | Group-Object {
     if ($_.DirectoryName -match 'cisa') { 'CISA' }
     elseif ($_.DirectoryName -match 'orca') { 'ORCA' }
     elseif ($_.DirectoryName -match 'cis') { 'CIS' }
@@ -156,10 +156,9 @@ foreach ($group in $fileGroups | Sort-Object Name) {
 # Helper function to get test documentation
 function Get-TestDocumentation {
     param(
-        [string]$TestName,
         [string]$TestFile
     )
-    
+
     $documentation = @{
         Description = ""
         HowToFix = ""
@@ -168,28 +167,28 @@ function Get-TestDocumentation {
         DefaultValue = ""
         Rationale = ""
     }
-    
+
     # Try to find corresponding .ps1 file in public folder
     $publicPath = $TestFile -replace 'maester-tests', 'public' -replace '\.Tests\.ps1$', '.ps1'
     if (Test-Path $publicPath) {
         $cmdContent = Get-Content $publicPath -Raw
-        
+
         # Extract description from .SYNOPSIS
         if ($cmdContent -match '\.SYNOPSIS\s*\n\s*(.+?)(?=\n\s*\.|#>)') {
             $documentation.Description = $matches[1].Trim()
         }
-        
+
         # Extract description from .DESCRIPTION
         if ($cmdContent -match '\.DESCRIPTION\s*\n([\s\S]+?)(?=\n\s*\.|#>)') {
             $documentation.Rationale = $matches[1].Trim() -replace '\s+', ' '
         }
     }
-    
+
     # Try to find corresponding .md file
     $mdPath = $publicPath -replace '\.ps1$', '.md'
     if (Test-Path $mdPath) {
         $mdContent = Get-Content $mdPath -Raw
-        
+
         # Extract sections from markdown
         if ($mdContent -match '## Description\s*\n([\s\S]+?)(?=\n##|\Z)') {
             $documentation.Description = $matches[1].Trim()
@@ -207,19 +206,18 @@ function Get-TestDocumentation {
             $documentation.DefaultValue = $matches[1].Trim()
         }
     }
-    
+
     return $documentation
 }
 
 # Helper function to get remediation URL
 function Get-RemediationUrl {
     param(
-        [string]$TestName,
-        [string]$TestType
+        [string]$TestName
     )
-    
+
     $baseUrl = "https://security.microsoft.com"
-    
+
     switch -Regex ($TestName) {
         'Spam|AntiSpam' { return "$baseUrl/antispam" }
         'Phish|AntiPhish' { return "$baseUrl/antiphishing" }
@@ -251,42 +249,42 @@ foreach ($testFile in $exoTestFiles) {
     $fileCount++
     $percentComplete = [math]::Round(($fileCount / $exoTestFiles.Count) * 100, 0)
     Write-Progress -Activity "Running Exchange Online Security Tests" -Status "Processing $($testFile.Name)" -PercentComplete $percentComplete
-    
+
     try {
         # Run the test file
         $container = New-PesterContainer -Path $testFile.FullName
-        
+
         $pesterConfig = New-PesterConfiguration
         $pesterConfig.Run.Container = $container
         $pesterConfig.Run.PassThru = $true
         $pesterConfig.Output.Verbosity = 'None'
         $pesterConfig.TestResult.Enabled = $true
-        
+
         # Run tests
         $testOutput = Invoke-Pester -Configuration $pesterConfig
-        
+
         foreach ($test in $testOutput.Tests) {
             $totalTestCount++
-            
+
             # Determine test metadata
             $testType = if ($testFile.DirectoryName -match 'cisa') { 'CISA' }
                        elseif ($testFile.DirectoryName -match 'orca') { 'ORCA' }
                        elseif ($testFile.DirectoryName -match 'cis') { 'CIS' }
                        else { 'Other' }
-            
+
             # Get test documentation
-            $docs = Get-TestDocumentation -TestName $test.Name -TestFile $testFile.FullName
-            
+            $docs = Get-TestDocumentation -TestFile $testFile.FullName
+
             # Get remediation URL
-            $remediationUrl = Get-RemediationUrl -TestName $test.Name -TestType $testType
-            
+            $remediationUrl = Get-RemediationUrl -TestName $test.Name
+
             # Extract test ID from name
-            $testId = if ($test.Name -match '^(ORCA\.\d+|CISA\.MS\.EXO\.\d+\.\d+|CIS\.\d+\.\d+\.\d+)') { 
-                $matches[1] 
-            } else { 
-                $test.Name -split ':' | Select-Object -First 1 
+            $testId = if ($test.Name -match '^(ORCA\.\d+|CISA\.MS\.EXO\.\d+\.\d+|CIS\.\d+\.\d+\.\d+)') {
+                $matches[1]
+            } else {
+                $test.Name -split ':' | Select-Object -First 1
             }
-            
+
             # Build detailed output
             $detailOutput = ""
             if ($test.Result -eq 'Failed' -and $test.ErrorRecord) {
@@ -294,7 +292,7 @@ foreach ($testFile in $exoTestFiles) {
             } elseif ($test.Result -eq 'Skipped' -and $test.SkippedBecause) {
                 $detailOutput = "Skipped: $($test.SkippedBecause)"
             }
-            
+
             # Create detailed record
             $record = [PSCustomObject]@{
                 TestFile = $testFile.Name
@@ -304,26 +302,26 @@ foreach ($testFile in $exoTestFiles) {
                 Result = $test.Result
                 Executed = $test.Executed
                 Duration = if ($test.Duration) { "{0:N2}" -f $test.Duration.TotalSeconds } else { "0.00" }
-                
+
                 # Test details
                 Description = $docs.Description
                 Rationale = $docs.Rationale
                 Impact = $docs.Impact
                 DefaultValue = $docs.DefaultValue
-                
+
                 # Result details
                 ResultDetail = $detailOutput
                 ErrorMessage = if ($test.ErrorRecord) { $test.ErrorRecord.Exception.Message } else { "" }
-                
+
                 # Remediation
                 HowToFix = $docs.HowToFix
                 RemediationUrl = $remediationUrl
                 References = $docs.References
-                
+
                 # Additional context
                 Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             }
-            
+
             $detailedResults += $record
         }
     }
@@ -493,27 +491,27 @@ foreach ($test in $failedTests) {
     $htmlContent += "            <p>$($test.Description)</p>" + "`n"
     $htmlContent += '        </div>' + "`n"
     $htmlContent += '        ' + "`n"
-    
+
     if ($test.ErrorMessage) {
         $htmlContent += "        <div class='error'>" + "`n"
         $htmlContent += "            <strong>Error Details:</strong> $($test.ErrorMessage)" + "`n"
         $htmlContent += "        </div>" + "`n"
     }
-    
+
     if ($test.Impact) {
         $htmlContent += "        <div class='section'>" + "`n"
         $htmlContent += "            <div class='section-title'>Security Impact</div>" + "`n"
         $htmlContent += "            <p>$($test.Impact)</p>" + "`n"
         $htmlContent += "        </div>" + "`n"
     }
-    
+
     if ($test.Rationale) {
         $htmlContent += "        <div class='section'>" + "`n"
         $htmlContent += "            <div class='section-title'>Why This Matters</div>" + "`n"
         $htmlContent += "            <p>$($test.Rationale)</p>" + "`n"
         $htmlContent += "        </div>" + "`n"
     }
-    
+
     $htmlContent += '        <div class="remediation">' + "`n"
     $htmlContent += '            <div class="section-title">Remediation Steps</div>' + "`n"
     if ($test.HowToFix) {
@@ -521,18 +519,18 @@ foreach ($test in $failedTests) {
     } else {
         $htmlContent += "            <p>To fix this issue, review and update the configuration in the Microsoft admin portal.</p>" + "`n"
     }
-    
+
     $htmlContent += "            <p><strong>Admin Portal:</strong> <a href='$($test.RemediationUrl)' target='_blank'>$($test.RemediationUrl)</a></p>" + "`n"
     $htmlContent += '        </div>' + "`n"
     $htmlContent += '        ' + "`n"
-    
+
     if ($test.References) {
         $htmlContent += "        <div class='section'>" + "`n"
         $htmlContent += "            <div class='section-title'>Additional References</div>" + "`n"
         $htmlContent += "            <p>$($test.References)</p>" + "`n"
         $htmlContent += "        </div>" + "`n"
     }
-    
+
     $htmlContent += '    </div>' + "`n"
 }
 
@@ -547,7 +545,7 @@ $htmlContent | Out-File -FilePath $htmlPath -Encoding UTF8
 Write-Host "✓ HTML report exported to: $(Split-Path $htmlPath -Leaf)" -ForegroundColor Green
 
 # Display summary
-Write-Host "`n" + ("="*60) -ForegroundColor Cyan
+Write-Host ("`n" + ("=" * 60)) -ForegroundColor Cyan
 Write-Host "SECURITY HEALTH CHECK COMPLETED" -ForegroundColor Cyan
 Write-Host ("="*60) -ForegroundColor Cyan
 
@@ -557,13 +555,13 @@ Write-Host "  Passed: $($stats.Passed)" -ForegroundColor Green
 Write-Host "  Failed: $($stats.Failed)" -ForegroundColor Red
 Write-Host "  Skipped: $($stats.Skipped)" -ForegroundColor Yellow
 
-$complianceScore = if (($stats.Total - $stats.Skipped) -gt 0) { 
-    [math]::Round(($stats.Passed / ($stats.Total - $stats.Skipped)) * 100, 1) 
+$complianceScore = if (($stats.Total - $stats.Skipped) -gt 0) {
+    [math]::Round(($stats.Passed / ($stats.Total - $stats.Skipped)) * 100, 1)
 } else { 0 }
 
 Write-Host "`nCompliance Score: $complianceScore%" -ForegroundColor $(
-    if ($complianceScore -ge 80) { 'Green' } 
-    elseif ($complianceScore -ge 60) { 'Yellow' } 
+    if ($complianceScore -ge 80) { 'Green' }
+    elseif ($complianceScore -ge 60) { 'Yellow' }
     else { 'Red' }
 )
 
