@@ -1,0 +1,11 @@
+[codespell]
+# test_results.csv is a generated Maester run artifact: its prose columns are
+# Microsoft's own Entra recommendation text, reproduced verbatim. codespell finds
+# ~19 real misspellings in it ("targetting", "unsecure", "appplications",
+# "assiged", "Pretected", "usres", …) — but they are upstream Microsoft's, and
+# "fixing" them would falsify a recorded test result rather than correct any
+# prose we own.
+#
+# Skipping the file (not the words) keeps codespell meaningful everywhere else in
+# the repository, including any future hand-written docs.
+skip = *test_results.csv
